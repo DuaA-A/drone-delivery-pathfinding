@@ -1,155 +1,225 @@
-grid_size(5, 5).
+% Dynamic declarations
+:- dynamic(grid_size/2).
+:- dynamic(obstacle/2).
+:- dynamic(delivery_point/2).
+:- dynamic(start_point/1).
 
-% --- Obstacles ---
-obstacle(1, 5).
-obstacle(2, 2).
-obstacle(3, 3).
-obstacle(4, 2).
-obstacle(5, 4).
+%%%%%%%%%%%%%%%%%%%%%% Move Definition %%%%%%%%%%%%%%%%%%%%%%
 
-% --- Delivery Points ---
-delivery_point(1, 3).
-delivery_point(2, 5).
-delivery_point(3, 4).
-delivery_point(4, 1).
-delivery_point(5, 3).
-
-% --- Start Point ---
-start_point((1, 1)).
-
-
-% Move right
 move((X, Y), (NewX, Y)) :-
     NewX is X + 1,
     grid_size(MaxX, _),
     NewX =< MaxX,
     \+ obstacle(NewX, Y).
 
-% Move left
 move((X, Y), (NewX, Y)) :-
     NewX is X - 1,
     NewX > 0,
     \+ obstacle(NewX, Y).
 
-% Move down
 move((X, Y), (X, NewY)) :-
     NewY is Y + 1,
     grid_size(_, MaxY),
     NewY =< MaxY,
     \+ obstacle(X, NewY).
 
-% Move up
 move((X, Y), (X, NewY)) :-
     NewY is Y - 1,
     NewY > 0,
     \+ obstacle(X, NewY).
 
+%%%%%%%%%%%%%%%%%%%%%% DFS Search %%%%%%%%%%%%%%%%%%%%%%
 
-%%%%%%%%%%%%%%%%%BFS Search%%%%%%%%%%%%%%%%%%%
+% Check if a position is a delivery point
+is_delivery_point(R, C) :-
+    delivery_point(R, C),
+    !.
+is_delivery_point(_, _) :-
+    false.
 
-% Base case: Queue is empty, return accumulated paths
-bfs([], _, AllPaths, AllPaths).
+% DFS to explore the grid, tracking the path
+dfs((R, C), Visited, DeliveryCount, PathSoFar, BestDeliveryCount, BestPath) :-
+    % Mark current position as visited
+    \+ member((R, C), Visited),
+    % Increment delivery count if at a delivery point
+    is_delivery_point(R, C),
+    NewDeliveryCount is DeliveryCount + 1,
+    % Add current position to visited list and path
+    append(Visited, [(R, C)], NewVisited),
+    append(PathSoFar, [(R, C)], NewPath),
+    % Explore neighbors
+    findall((NewR, NewC),
+            (move((R, C), (NewR, NewC)),
+             \+ member((NewR, NewC), NewVisited)),
+            Neighbors),
+    dfs_neighbors(Neighbors, NewVisited, NewDeliveryCount, NewPath, BestDeliveryCount, BestPath).
 
-% recursive case: track closed list, and collect stuck paths
-bfs([(CurrentPos, PathSoFar)|RestQueue], Closed, AccumulatedPaths, AllPaths) :-
-    \+ member(CurrentPos, Closed), % dont check the position is already in the closed list(explored)
-    findall( %generates all possible next positions
-        (NextPos, [NextPos|PathSoFar]),
-        (
-            move(CurrentPos, NextPos),
-            \+ member(NextPos, PathSoFar), % Prevent revisiting cells in the same path
-            \+ member(NextPos, RestQueue), % NextPos is not already in the queue (open list)
-            \+ member(NextPos, Closed) %NextPos is not in the Closed list (explored)
-        ),
-        Children
-    ),
-    append(RestQueue, Children, NewQueue),  %put childrens on the right of the open list (NewQueue)
-    update_accumulated_paths(PathSoFar, AccumulatedPaths, NewAccumulatedPaths),%add the current path to the accumlated path or not
-    bfs(NewQueue, [CurrentPos|Closed], NewAccumulatedPaths, AllPaths).
+% Case when current position is not a delivery point
+dfs((R, C), Visited, DeliveryCount, PathSoFar, BestDeliveryCount, BestPath) :-
+    % Mark current position as visited
+    \+ member((R, C), Visited),
+    \+ is_delivery_point(R, C),
+    NewDeliveryCount is DeliveryCount,
+    % Add current position to visited list and path
+    append(Visited, [(R, C)], NewVisited),
+    append(PathSoFar, [(R, C)], NewPath),
+    % Explore neighbors
+    findall((NewR, NewC),
+            (move((R, C), (NewR, NewC)),
+             \+ member((NewR, NewC), NewVisited)),
+            Neighbors),
+    dfs_neighbors(Neighbors, NewVisited, NewDeliveryCount, NewPath, BestDeliveryCount, BestPath).
 
-% Update accumulated paths based on stuck condition
-update_accumulated_paths(PathSoFar, AccumulatedPaths, [PathSoFar|AccumulatedPaths]) :-
-    is_stuck(PathSoFar).
+% Base case:  if no valid move can be made anymore  (stuck)
+dfs(_, _, DeliveryCount, PathSoFar, DeliveryCount, PathSoFar).
 
-update_accumulated_paths(PathSoFar, AccumulatedPaths, AccumulatedPaths) :-
-    \+ is_stuck(PathSoFar).
+% Helper to explore all neighbors
+%base case : if neighbors list is empty
+dfs_neighbors([], _, DeliveryCount, PathSoFar, DeliveryCount, PathSoFar).
 
+dfs_neighbors([(NewR, NewC)|Rest], Visited, DeliveryCount, PathSoFar, BestDeliveryCount, BestPath) :-
+    dfs((NewR, NewC), Visited, DeliveryCount, PathSoFar, SubDeliveryCount, SubPath),
+    dfs_neighbors(Rest, Visited, DeliveryCount, PathSoFar, RestDeliveryCount, RestPath),
+    select_best(SubDeliveryCount, SubPath, RestDeliveryCount, RestPath, BestDeliveryCount, BestPath).
 
-% Check If drone is stuck (no further moves possible)
-is_stuck(Path) :-
-    last(Path, LastPos),
-    \+ (
-        move(LastPos, NextPos),
-        \+ member(NextPos, Path)
-    ).
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Helper to select the best path based on delivery count
+select_best(SubDeliveryCount, SubPath, RestDeliveryCount, RestPath, BestDeliveryCount, BestPath) :-
+    SubDeliveryCount >= RestDeliveryCount,
+    BestDeliveryCount = SubDeliveryCount,
+    BestPath = SubPath.
+select_best(SubDeliveryCount, SubPath, RestDeliveryCount, RestPath, BestDeliveryCount, BestPath) :-
+    SubDeliveryCount < RestDeliveryCount,
+    BestDeliveryCount = RestDeliveryCount,
+    BestPath = RestPath.
 
-% Path Processing and Evaluation
-% Prepare paths: Reverse and count delivery points
-prepare_paths([], []).
+%%%%%%%%%%%%%%%%%%%%%% Solve Function %%%%%%%%%%%%%%%%%%%%%%
 
-prepare_paths([Path|Rest], [(RealPath, Points)|PreparedRest]) :-
-    reverse(Path, RealPath),
-    count_delivery_points(RealPath, 0, Points),
-    prepare_paths(Rest, PreparedRest).
+solve :-
+    retractall(grid_size(_, _)),
+    retractall(obstacle(_, _)),
+    retractall(delivery_point(_, _)),
+    retractall(start_point(_)),
 
-% Count delivery points in a path
-count_delivery_points([], Acc, Acc).
+    write('Enter grid width: '), read(W),
+    write('Enter grid height: '), read(H),
+    assert(grid_size(W, H)),
 
-% Case 1: Current position is a delivery point
-count_delivery_points([(X, Y)|Rest], Acc, TotalPoints) :-
-    delivery_point(X, Y),
-    NewAcc is Acc + 1,
-    count_delivery_points(Rest, NewAcc, TotalPoints).
+    write('Enter start point as (X,Y): '), read((SX, SY)),
+    assert(start_point((SX, SY))),
 
-% Case 2: Current position is not a delivery point
-count_delivery_points([(X, Y)|Rest], Acc, TotalPoints) :-
-    \+ delivery_point(X, Y),
-    count_delivery_points(Rest, Acc, TotalPoints).
+    write('Enter obstacles list as [(X1,Y1),(X2,Y2),...]: '), read(Obstacles),
+    assert_obstacles(Obstacles),
 
-% Find paths with maximum delivery points among stuck paths
-find_max_delivery_paths([], []). % Base case: No paths, return empty list
+    write('Enter delivery points list as [(X1,Y1),(X2,Y2),...]: '), read(DeliveryPoints),
+    assert_delivery_points(DeliveryPoints),
 
-find_max_delivery_paths(Paths, MaxPaths) :-
-    include(is_stuck_with_path, Paths, StuckPaths),
-    findall(Points, member((_, Points), StuckPaths), PointsList),
-    max_list(PointsList, MaxPoints),
-    findall((Path, MaxPoints), member((Path, MaxPoints), StuckPaths), MaxPaths).
-
-% Helper for include: Check if path is stuck
-is_stuck_with_path((Path, _)) :-
-    is_stuck(Path).
-
-% Path Printing
-print_max_paths([]).
-
-print_max_paths([(Path, Points)|Rest]) :-
-    write('--- Best Path Found ---'),
-    nl,
-    write('Path:'),
-    nl,
-    print_path(Path),
-    write('Delivery points collected: '),
-    write(Points),
-    nl,
-    nl,
-    print_max_paths(Rest).
-
-print_path([]).
-
-print_path([(X, Y)|Rest]) :-
-    write(X),
-    write(','),
-    write(Y),
-    nl,
-    print_path(Rest).
-
-start :-
     start_point(Start),
-    bfs([(Start, [Start])], [], [], AllPaths),
-    prepare_paths(AllPaths, PreparedPaths),
-    find_max_delivery_paths(PreparedPaths, MaxPaths),
-    print_max_paths(MaxPaths).
+    dfs(Start, [], 0, [], MaxDeliveryCount, BestPath),
+
+    nl, write('Drone Route:'), nl,
+    write('Maximum delivery points visited: '), write(MaxDeliveryCount), nl,
+    write('Path taken: '), write(BestPath), nl,
+    print_grid(Start, []),
+
+    write('Steps:'), nl,
+    simulate_path(BestPath, []).
+
+%%%%%%%%%%%%%%%%%%%%%% Printing Utilities %%%%%%%%%%%%%%%%%%%%%%
+
+simulate_path([], _).
+simulate_path([Pos], PathSoFar) :-
+    append(PathSoFar, [Pos], FinalPath),
+    nl, write('Final:'), nl,
+    print_grid(Pos, FinalPath),
+    nl.
+
+simulate_path([Pos|Rest], PathSoFar) :-
+    append(PathSoFar, [Pos], NewPath),
+    print_grid(Pos, NewPath),
+    nl,
+    simulate_path(Rest, NewPath).
+
+print_grid(CurrentPos, Path) :-
+    grid_size(MaxX, MaxY),
+    forall(between(1, MaxX, X0),
+        (
+            X is X0,
+            forall(between(1, MaxY, Y),
+                print_cell(X, Y, CurrentPos, Path)
+            ),
+            nl
+        )
+    ).
+
+% Helper predicates for print_cell ;
+print_cell(X, Y, CurrentPos, _) :-
+    (X, Y) = CurrentPos,
+    !,
+    write(' d ').
+
+print_cell(X, Y, _, Path) :-
+    member((X, Y), Path),
+    !,
+    write(' * ').
+
+print_cell(X, Y, _, _) :-
+    obstacle(X, Y),
+    !,
+    write(' O ').
+
+print_cell(X, Y, _, _) :-
+    delivery_point(X, Y),
+    !,
+    write(' P ').
+
+print_cell(_, _, _, _) :-
+    write(' - ').
+
+%%%%%%%%%%%%%%%%%%%%%% Utility Predicates %%%%%%%%%%%%%%%%%%%%%%
+
+assert_obstacles([]).
+assert_obstacles([(X,Y)|Rest]) :-
+    assert(obstacle(X,Y)),
+    assert_obstacles(Rest).
+
+assert_delivery_points([]).
+assert_delivery_points([(X,Y)|Rest]) :-
+    assert(delivery_point(X,Y)),
+    assert_delivery_points(Rest).
+
+% Refactored select_best_path
+select_best_path([], ([], [])).
+select_best_path([(Path, Moves)|Rest], Best) :-
+    count_delivery_points(Path, Points),
+    select_best_path(Rest, (BestPath, BestMoves)),
+    count_delivery_points(BestPath, BestPoints),
+    compare_paths(Points, Path, Moves, BestPoints, BestPath, BestMoves, Best).
+
+% Helper to compare paths
+compare_paths(Points, Path, Moves, BestPoints, _, _, (Path, Moves)) :-
+    Points > BestPoints,
+    !.
+compare_paths(_, _, _, _, BestPath, BestMoves, (BestPath, BestMoves)).
+
+% count_delivery_points
+count_delivery_points([], 0).
+count_delivery_points([(X,Y)|Rest], Count) :-
+    count_delivery_points(Rest, RestCount),
+    delivery_point_check(X, Y, RestCount, Count).
+
+% Helper to check delivery point
+delivery_point_check(X, Y, RestCount, Count) :-
+    delivery_point(X, Y),
+    !,
+    Count is RestCount + 1.
+delivery_point_check(_, _, RestCount, RestCount).
+
+subset([], _).
+subset([H|T], List) :-
+    member(H, List),
+    subset(T, List).
+
+
 
 
 
