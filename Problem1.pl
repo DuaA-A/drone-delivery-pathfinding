@@ -50,7 +50,7 @@ dfs((R, C), Visited, DeliveryCount, PathSoFar, BestDeliveryCount, BestPath) :-
     % Explore neighbors
     findall((NewR, NewC),
             (move((R, C), (NewR, NewC)),
-             \+ member((NewR, NewC), NewVisited)),
+                \+ member((NewR, NewC), NewVisited)),
             Neighbors),
     dfs_neighbors(Neighbors, NewVisited, NewDeliveryCount, NewPath, BestDeliveryCount, BestPath).
 
@@ -66,7 +66,7 @@ dfs((R, C), Visited, DeliveryCount, PathSoFar, BestDeliveryCount, BestPath) :-
     % Explore neighbors
     findall((NewR, NewC),
             (move((R, C), (NewR, NewC)),
-             \+ member((NewR, NewC), NewVisited)),
+                \+ member((NewR, NewC), NewVisited)),
             Neighbors),
     dfs_neighbors(Neighbors, NewVisited, NewDeliveryCount, NewPath, BestDeliveryCount, BestPath).
 
