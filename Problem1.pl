@@ -187,37 +187,37 @@ assert_delivery_points([(X,Y)|Rest]) :-
     assert(delivery_point(X,Y)),
     assert_delivery_points(Rest).
 
-% Refactored select_best_path
-select_best_path([], ([], [])).
-select_best_path([(Path, Moves)|Rest], Best) :-
-    count_delivery_points(Path, Points),
-    select_best_path(Rest, (BestPath, BestMoves)),
-    count_delivery_points(BestPath, BestPoints),
-    compare_paths(Points, Path, Moves, BestPoints, BestPath, BestMoves, Best).
+# % Refactored select_best_path
+# select_best_path([], ([], [])).
+# select_best_path([(Path, Moves)|Rest], Best) :-
+#     count_delivery_points(Path, Points),
+#     select_best_path(Rest, (BestPath, BestMoves)),
+#     count_delivery_points(BestPath, BestPoints),
+#     compare_paths(Points, Path, Moves, BestPoints, BestPath, BestMoves, Best).
 
-% Helper to compare paths
-compare_paths(Points, Path, Moves, BestPoints, _, _, (Path, Moves)) :-
-    Points > BestPoints,
-    !.
-compare_paths(_, _, _, _, BestPath, BestMoves, (BestPath, BestMoves)).
+# % Helper to compare paths
+# compare_paths(Points, Path, Moves, BestPoints, _, _, (Path, Moves)) :-
+#     Points > BestPoints,
+#     !.
+# compare_paths(_, _, _, _, BestPath, BestMoves, (BestPath, BestMoves)).
 
-% count_delivery_points
-count_delivery_points([], 0).
-count_delivery_points([(X,Y)|Rest], Count) :-
-    count_delivery_points(Rest, RestCount),
-    delivery_point_check(X, Y, RestCount, Count).
+# % count_delivery_points
+# count_delivery_points([], 0).
+# count_delivery_points([(X,Y)|Rest], Count) :-
+#     count_delivery_points(Rest, RestCount),
+#     delivery_point_check(X, Y, RestCount, Count).
 
-% Helper to check delivery point
-delivery_point_check(X, Y, RestCount, Count) :-
-    delivery_point(X, Y),
-    !,
-    Count is RestCount + 1.
-delivery_point_check(_, _, RestCount, RestCount).
+# % Helper to check delivery point
+# delivery_point_check(X, Y, RestCount, Count) :-
+#     delivery_point(X, Y),
+#     !,
+#     Count is RestCount + 1.
+# delivery_point_check(_, _, RestCount, RestCount).
 
-subset([], _).
-subset([H|T], List) :-
-    member(H, List),
-    subset(T, List).
+# subset([], _).
+# subset([H|T], List) :-
+#     member(H, List),
+#     subset(T, List).
 
 
 
