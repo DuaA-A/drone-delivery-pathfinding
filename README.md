@@ -8,7 +8,7 @@
   <div class="container">
     <h1>Drone Delivery Pathfinding</h1>
     <p><strong>Language:</strong> Prolog</p>
-    <p><strong>Search Type:</strong> Uninformed Search (DFS or BFS)</p>
+    <p><strong>Search Type:</strong> Uninformed Search (DFS)</p>
     <h2>About</h2>
     <p>This project simulates a delivery drone navigating a city grid to deliver packages. The drone must visit as many delivery points (<code>P</code>) as possible, starting from the top-left corner (<code>D</code>), while avoiding obstacles (<code>O</code>).</p>
     <p>The program uses uninformed search algorithms — either <strong>Depth-First Search (DFS)</strong> or <strong>Breadth-First Search (BFS)</strong> — to explore the grid and determine the optimal path that reaches the most delivery points without hitting any obstacles.</p>
